@@ -1,4 +1,4 @@
-module oris_log
+module github.com/Toflex/oris_log
 
 go 1.17
 
