@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"log"
 	"math"
@@ -16,6 +17,7 @@ import (
 
 // FileWriter writes log to file
 type FileWriter struct {
+	ID uuid.UUID
 	sync.Mutex
 	config *config
 	acc []logFormat
@@ -24,44 +26,63 @@ type FileWriter struct {
 	context map[string]interface{}
 }
 
-// SetContext This function is used to add context to a log record.
-func (f *FileWriter) SetContext(ctx map[string]interface{}) Logger {
+// NewContext This function is used to add context to a log record.
+func (f *FileWriter) NewContext(ctx map[string]interface{}) Logger {
 	return &FileWriter{
 		config: f.config,
 		fp: f.fp,
 		ch: f.ch,
 		context: ctx,
 		acc: f.acc,
+		ID: uuid.New(),
 	}
+}
+
+// AddContext Add a new context value to log writer
+func (l *FileWriter) AddContext(key string, value interface{}) {
+	l.context[key] = value
+}
+
+// GetContext returns context value based on its key
+func (l *FileWriter) GetContext(key string) interface{} {
+	return l.context[key]
 }
 
 // Info log info
 func (f *FileWriter) Info(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, INFO)
-	f.ch <- lf
+	if _,ok := f.config.Disabled["info"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, INFO, f.ID)
+		f.ch <- lf
+	}
 }
 
 // Error log error
 func (f *FileWriter) Error(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, ERROR)
-	f.ch <- lf
+	if _,ok := f.config.Disabled["error"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, ERROR, f.ID)
+		f.ch <- lf
+	}
 }
 
-// Warning log warning
-func (f *FileWriter) Warning(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, WARNING)
-	f.ch <- lf
+// Debug log debug
+func (f *FileWriter) Debug(arg0 interface{}, arg1 ...interface{}) {
+	if _,ok := f.config.Disabled["debug"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, DEBUG, f.ID)
+		f.ch <- lf
+	}
 }
 
 // Fatal log fatal
 func (f *FileWriter) Fatal(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, FATAL)
+	if _,ok := f.config.Disabled["fatal"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), f.config.Name, f.context, FATAL, f.ID)
 
-	go func() {
-		f.ch <- lf
-		time.Sleep(1e9)
-		os.Exit(0)
-	}()
+		go func() {
+			f.ch <- lf
+			time.Sleep(1e9)
+			os.Exit(0)
+		}()
+	}
 }
 
 // writeToFile this method handle the way log is been written to file

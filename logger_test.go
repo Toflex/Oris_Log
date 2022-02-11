@@ -1,6 +1,7 @@
 package Oris_Log
 
 import (
+	"github.com/google/uuid"
 	"os"
 	"testing"
 	"time"
@@ -18,4 +19,26 @@ func Test_Log_File_Creation(t *testing.T)  {
 	if inputError != nil {
 		t.Fatalf("File was not created for logging")
 	}
+}
+
+func TestConsoleWriter_AddContext(t *testing.T) {
+	lg:=New()
+	traceId:=uuid.New().String()
+	lg.Debug("Hello, World!")
+	lg.Debug("Hello, World!")
+	lg.Debug("Hello, World!")
+	ctx:=make(map[string]interface{})
+	l:=lg.NewContext(ctx)
+	l.AddContext("traceId", traceId)
+	if l.GetContext("traceId") != traceId{
+		t.Errorf("Context was not set with traceId=%s", traceId)
+	}
+	l.Info("Log with trace ID")
+	ttt(l)
+
+}
+
+func ttt(x Logger) {
+	x.AddContext("Name", "Tolu")
+	x.Fatal("Log with trace ID same as caller")
 }

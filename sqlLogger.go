@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"os"
 	"time"
@@ -15,37 +16,56 @@ type SqlWriter struct {
 	config *config
 	db  *sql.DB
 	context map[string]interface{}
+	ID uuid.UUID
 }
 
-// SetContext This function is used to add context to a log record.
-func (s *SqlWriter) SetContext(ctx map[string]interface{}) Logger {
-	return &SqlWriter{config: s.config, context: ctx}
+// NewContext This function is used to add context to a log record.
+func (s *SqlWriter) NewContext(ctx map[string]interface{}) Logger {
+	return &SqlWriter{config: s.config, context: ctx, ID: uuid.New()}
+}
+
+// AddContext Add a new context value to log writer
+func (l *SqlWriter) AddContext(key string, value interface{}) {
+	l.context[key] = value
+}
+
+// GetContext returns context value based on its key
+func (l *SqlWriter) GetContext(key string) interface{} {
+	return l.context[key]
 }
 
 // Info log info
 func (s *SqlWriter) Info(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, INFO)
-	go s.write(&lf)
+	if _,ok := s.config.Disabled["info"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, INFO, s.ID)
+		go s.write(&lf)
+	}
 }
 
 // Error log error
 func (s *SqlWriter) Error(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, ERROR)
-	go s.write(&lf)
+	if _,ok := s.config.Disabled["error"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, ERROR, s.ID)
+		go s.write(&lf)
+	}
 }
 
-// Warning log warning
-func (s *SqlWriter) Warning(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, WARNING)
-	go s.write(&lf)
+// Debug log debug
+func (s *SqlWriter) Debug(arg0 interface{}, arg1 ...interface{}) {
+	if _,ok := s.config.Disabled["debug"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, DEBUG, s.ID)
+		go s.write(&lf)
+	}
 }
 
 // Fatal log fatal
 func (s *SqlWriter) Fatal(arg0 interface{}, arg1 ...interface{}) {
-	lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, FATAL)
-	go s.write(&lf)
-	time.Sleep(2e9)
-	os.Exit(0)
+	if _,ok := s.config.Disabled["fatal"]; !ok {
+		lf := prepareLog(fmt.Sprintf(arg0.(string), arg1...), s.config.Name, s.context, FATAL, s.ID)
+		go s.write(&lf)
+		time.Sleep(2e9)
+		os.Exit(0)
+	}
 }
 
 func (s *SqlWriter) write(lf *logFormat)  {

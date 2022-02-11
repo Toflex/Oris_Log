@@ -23,20 +23,23 @@
 //  "MaxFileSize": "2K",
 //  "folder": "logs",
 //  "output": "console",
-//  "buffer": 10000
+//  "buffer": 10000,
+//  "disable_logType": ["fatal","debug"]
 //	}
 // 1. name: The project name
 //
 // 2. filename: The name that would be assigned to log file. This config is only needed when using file as output.
 //
-// 3. MaxFileSize: Set the max file size for each logs, ones the file exceeds the max size, it is renamed and subsequent logs are written to a new file.
+// 3. MaxFileSize: Set the max file size for each log, ones the file exceeds the max size, it is renamed and subsequent logs are written to a new file.
 // Note: A new log file is created every day. The size is a string with suffix 'K' kilobyte and 'M' Megabyte.
 //
 // 4. folder: the name of the folder where logs file would be kept, the default location is ./logs.
 //
 // 5. output: This determines where logs would be written to i.e file, console, or MongoDB
 //
-// 6. buffer: This id used when output is set to `file`, it buffers file during write to memory to avoid blocking.
+// 6. buffer: This value is used when output is set to `file`, it buffers file during write to memory to avoid blocking.
+//
+// 7. disable_logType: This can be used to disable so log type in production i.e. debug log. The allowable values are 'info','debug','error','fatal'
 //
 package Oris_Log
 
@@ -64,14 +67,20 @@ type Logger interface {
 	// Error Logs are written to an output with an error label
 	Error(interface{}, ...interface{})
 	
-	// Warning Logs are written to an output with a warning label
-	Warning(interface{}, ...interface{})
+	// Debug Logs are written to an output with a debug label
+	Debug(interface{}, ...interface{})
 
 	// Fatal : Logs is been written to output and program terminates immediately  
 	Fatal(interface{}, ...interface{})
 
-	// SetContext This function is used to add context to a log record.
-	SetContext(map[string]interface{}) Logger
+	// NewContext This function is used to add context to a log record, a new instance of the log writer is returned.
+	NewContext(map[string]interface{}) Logger
+
+	// AddContext Add a new context value to a log writer
+	AddContext(key string, value interface{})
+
+	// GetContext returns context value based on its key
+	GetContext(key string) interface{}
 }
 
 type Label string
@@ -90,7 +99,7 @@ const (
 
 	INFO    Label = "INFO"
 	ERROR   Label = "ERROR"
-	WARNING Label = "WARNING"
+	DEBUG   Label = "DEBUG"
 	FATAL   Label = "FATAL"
 )
 
@@ -106,6 +115,8 @@ type config struct {
 	BaseDir     string `json:"base_dir"`
 	Buf         int    `json:"buffer"` // Buf only works with file output type
 	DBName      string `json:"DBName"`
+	Disabled    map[string]bool
+	DisableLogType []string `json:"disable_logType"` // values 'info','debug','error','fatal'
 }
 
 // LogFormat outlines the way messages will be formatted in json
@@ -164,6 +175,13 @@ func (c *config) initConfig() {
 	if c.Buf == 0 || c.Buf < 5000 {
 		c.Buf = 10000
 	}
+
+	c.Disabled = make(map[string]bool)
+	if len(c.DisableLogType) > 0 {
+		for _, v := range c.DisableLogType[:4] {
+			c.Disabled[v] = true
+		}
+	}
 }
 
 // New create a logger instance
@@ -174,10 +192,10 @@ func New(conn ...interface{}) Logger {
 
 	switch configs.Output {
 	case CONSOLE:
-		return &LogWriter{config: configs}
+		return &ConsoleWriter{config: configs, ID: uuid.New()}
 	case FILE:
 		{
-			file := &FileWriter{config: configs, ch: make(chan logFormat, configs.Buf)}
+			file := &FileWriter{config: configs, ch: make(chan logFormat, configs.Buf), ID: uuid.New()}
 			go processor(file.ch, file)
 			return file
 		}
@@ -218,11 +236,12 @@ func New(conn ...interface{}) Logger {
 			return &MongoWriter{
 				config: configs,
 				db: col,
+				ID: uuid.New(),
 			}
 		}
 	}
 
-	panic("Invalid Output!")
+	return &ConsoleWriter{config: configs, ID: uuid.New()}
 }
 
 //	getSource returns the name of the function caller and the line where the call was made
@@ -232,9 +251,9 @@ func getSource(depth int) string {
 	return fmt.Sprintf("%s:%d", caller, line)
 }
 
-func prepareLog(message, prefix string, ctx map[string]interface{}, ltype Label) logFormat {
+func prepareLog(message, prefix string, ctx map[string]interface{}, ltype Label, ID uuid.UUID) logFormat {
 	return logFormat{
-		ID:      uuid.New(),
+		ID:      ID,
 		Created: time.Now().Format(LOGDATEFORMAT),
 		Label:   ltype,
 		Prefix:  prefix,
