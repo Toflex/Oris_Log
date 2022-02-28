@@ -14,12 +14,17 @@ type MongoWriter struct {
 	config  *config
 	db      *mongo.Collection
 	context map[string]interface{}
-	ID uuid.UUID
+	ID string
+}
+
+//SetLogID set the current logger instance's ID
+func (m *MongoWriter) SetLogID(id string) {
+	m.ID = id
 }
 
 // NewContext This function is used to add context to a log record.
 func (m *MongoWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &MongoWriter{config: m.config, context: ctx, ID: uuid.New()}
+	return &MongoWriter{config: m.config, context: ctx, ID: uuid.New().String()}
 }
 
 // AddContext Add a new context value to log writer

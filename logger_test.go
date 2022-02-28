@@ -40,5 +40,7 @@ func TestConsoleWriter_AddContext(t *testing.T) {
 
 func ttt(x Logger) {
 	x.AddContext("Name", "Tolu")
-	x.Fatal("Log with trace ID same as caller")
+	x.Info("testing testing!")
+	x.SetLogID("15151515151515")
+	x.Debug("Log with trace ID same as caller")
 }

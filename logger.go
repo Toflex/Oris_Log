@@ -81,6 +81,8 @@ type Logger interface {
 
 	// GetContext returns context value based on its key
 	GetContext(key string) interface{}
+
+	SetLogID(id string)
 }
 
 type Label string
@@ -122,7 +124,7 @@ type config struct {
 // LogFormat outlines the way messages will be formatted in json
 type logFormat struct {
 	Created string    `json:"created"`
-	ID     uuid.UUID `json:"id"`
+	ID     string `json:"id"`
 	Label  Label     `json:"label"`
 	Prefix string    `json:"prefix"`
 	Source  string    `json:"source"`
@@ -192,10 +194,10 @@ func New(conn ...interface{}) Logger {
 
 	switch configs.Output {
 	case CONSOLE:
-		return &ConsoleWriter{config: configs, ID: uuid.New()}
+		return &ConsoleWriter{config: configs, ID: uuid.New().String()}
 	case FILE:
 		{
-			file := &FileWriter{config: configs, ch: make(chan logFormat, configs.Buf), ID: uuid.New()}
+			file := &FileWriter{config: configs, ch: make(chan logFormat, configs.Buf), ID: uuid.New().String()}
 			go processor(file.ch, file)
 			return file
 		}
@@ -236,12 +238,12 @@ func New(conn ...interface{}) Logger {
 			return &MongoWriter{
 				config: configs,
 				db: col,
-				ID: uuid.New(),
+				ID: uuid.New().String(),
 			}
 		}
 	}
 
-	return &ConsoleWriter{config: configs, ID: uuid.New()}
+	return &ConsoleWriter{config: configs, ID: uuid.New().String()}
 }
 
 //	getSource returns the name of the function caller and the line where the call was made
@@ -251,7 +253,7 @@ func getSource(depth int) string {
 	return fmt.Sprintf("%s:%d", caller, line)
 }
 
-func prepareLog(message, prefix string, ctx map[string]interface{}, ltype Label, ID uuid.UUID) logFormat {
+func prepareLog(message, prefix string, ctx map[string]interface{}, ltype Label, ID string) logFormat {
 	return logFormat{
 		ID:      ID,
 		Created: time.Now().Format(LOGDATEFORMAT),

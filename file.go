@@ -17,13 +17,17 @@ import (
 
 // FileWriter writes log to file
 type FileWriter struct {
-	ID uuid.UUID
+	ID string
 	sync.Mutex
 	config *config
 	acc []logFormat
 	fp *os.File
 	ch chan logFormat
 	context map[string]interface{}
+}
+
+func (f *FileWriter) SetLogID(id string) {
+	f.ID = id
 }
 
 // NewContext This function is used to add context to a log record.
@@ -34,7 +38,7 @@ func (f *FileWriter) NewContext(ctx map[string]interface{}) Logger {
 		ch: f.ch,
 		context: ctx,
 		acc: f.acc,
-		ID: uuid.New(),
+		ID: uuid.New().String(),
 	}
 }
 

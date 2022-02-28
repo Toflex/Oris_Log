@@ -9,9 +9,14 @@ import (
 
 // ConsoleWriter writes log to console
 type ConsoleWriter struct {
-	ID uuid.UUID
+	ID string
 	config *config
 	context map[string]interface{}
+}
+
+//SetLogID set the current logger instance's ID
+func (l *ConsoleWriter) SetLogID(id string) {
+	l.ID = id
 }
 
 func writer(log *logFormat) {
@@ -21,7 +26,7 @@ func writer(log *logFormat) {
 
 // NewContext This function is used to add context to the logger instance
 func (l *ConsoleWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &ConsoleWriter{config: l.config, context: ctx, ID: uuid.New()}
+	return &ConsoleWriter{config: l.config, context: ctx, ID: uuid.New().String()}
 }
 
 // AddContext Add a new context value to log writer

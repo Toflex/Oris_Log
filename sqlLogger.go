@@ -16,12 +16,17 @@ type SqlWriter struct {
 	config *config
 	db  *sql.DB
 	context map[string]interface{}
-	ID uuid.UUID
+	ID string
+}
+
+//SetLogID set the current logger instance's ID
+func (s *SqlWriter) SetLogID(id string) {
+	s.ID = id
 }
 
 // NewContext This function is used to add context to a log record.
 func (s *SqlWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &SqlWriter{config: s.config, context: ctx, ID: uuid.New()}
+	return &SqlWriter{config: s.config, context: ctx, ID: uuid.New().String()}
 }
 
 // AddContext Add a new context value to log writer
