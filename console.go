@@ -3,7 +3,6 @@ package Oris_Log
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"os"
 )
 
@@ -25,8 +24,9 @@ func writer(log *logFormat) {
 }
 
 // NewContext This function is used to add context to the logger instance
-func (l *ConsoleWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &ConsoleWriter{config: l.config, context: ctx, ID: uuid.New().String()}
+func (l *ConsoleWriter) NewContext() Logger {
+	ctx:=make(map[string]interface{})
+	return &ConsoleWriter{config: l.config, context: ctx, ID: l.ID}
 }
 
 // AddContext Add a new context value to log writer

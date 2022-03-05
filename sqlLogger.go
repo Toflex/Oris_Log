@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"log"
 	"os"
 	"time"
@@ -25,8 +24,9 @@ func (s *SqlWriter) SetLogID(id string) {
 }
 
 // NewContext This function is used to add context to a log record.
-func (s *SqlWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &SqlWriter{config: s.config, context: ctx, ID: uuid.New().String()}
+func (s *SqlWriter) NewContext() Logger {
+	ctx:=make(map[string]interface{})
+	return &SqlWriter{config: s.config, context: ctx, ID: s.ID}
 }
 
 // AddContext Add a new context value to log writer
@@ -77,7 +77,7 @@ func (s *SqlWriter) write(lf *logFormat)  {
 	ctx:=context.Background()
 	context, _:=json.Marshal(lf.Context)
 	insertQuery := fmt.Sprintf(`Insert into %s (Created, ID, Type, Prefix, Source, Message, Context) 
-		values (?,?,?,?,?,?,?)`, s.config.DBName)
+		values (?,?,?,?,?,?,?)`, s.config.Collection)
 	_, err := s.db.ExecContext(ctx, insertQuery, lf.Created, lf.ID, lf.Label, lf.Prefix, lf.Source, lf.Message, string(context))
 	if err != nil {
 		log.Println(err)

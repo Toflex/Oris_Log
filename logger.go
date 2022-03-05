@@ -16,7 +16,7 @@
 //
 //6. Context can be added to a log i.e. User ID, can be added to a log to track user footprint.
 //
-// Oris logger requires a configuration file `logs.json`:
+// Oris logger requires a configuration file `logger.json`:
 //  {
 //  "name": "awesomeProject",
 //  "filename": "sample",
@@ -44,15 +44,10 @@
 package Oris_Log
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
-	"io/ioutil"
-	"log"
-	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -74,7 +69,7 @@ type Logger interface {
 	Fatal(interface{}, ...interface{})
 
 	// NewContext This function is used to add context to a log record, a new instance of the log writer is returned.
-	NewContext(map[string]interface{}) Logger
+	NewContext() Logger
 
 	// AddContext Add a new context value to a log writer
 	AddContext(key string, value interface{})
@@ -82,13 +77,14 @@ type Logger interface {
 	// GetContext returns context value based on its key
 	GetContext(key string) interface{}
 
+	// SetLogID set ID for the current log context
 	SetLogID(id string)
 }
 
+// Label datatype for log type
 type Label string
 
 const (
-	configFileName = "logs.json"
 	CONSOLE        = "console"
 	FILE           = "file"
 	SQL            = "sql"
@@ -106,19 +102,31 @@ const (
 )
 
 type config struct {
-	Name        string `json:"name"`
-	Filename    string `json:"filename"`
-	MaxFileSize string `json:"MaxFileSize"`
-	MaxSize     int64  `json:"max_size"`
-	HasMaxSize  bool   `json:"HasMaxSize"`
-	Folder      string `json:"folder"`
-	Path        string `json:"path"`
-	Output      string `json:"output"`
-	BaseDir     string `json:"base_dir"`
-	Buf         int    `json:"buffer"` // Buf only works with file output type
-	DBName      string `json:"DBName"`
+	Name        string
+	Filename    string
+	MaxFileSize string
+	MaxSize     int64
+	HasMaxSize  bool
+	Folder      string
+	Path        string
+	Output      string
+	BaseDir     string
+	Buf         int 	// Buf only works with file output type
+	Collection  string
 	Disabled    map[string]bool
-	DisableLogType []string `json:"disable_logType"` // values 'info','debug','error','fatal'
+	DisableLogType []string // values 'info','debug','error','fatal'
+}
+
+type Configuration struct {
+	Name string
+	Filename string
+	MaxFileSize string
+	Folder string
+	Output string
+	Buffer int
+	DisableLogType []string
+	MongoDB *mongo.Database
+	ColName string
 }
 
 // LogFormat outlines the way messages will be formatted in json
@@ -132,24 +140,19 @@ type logFormat struct {
 	Context map[string]interface{} `json:"context,omitempty"`
 }
 
-// initConfig Initializes log configurations that can be gotten from the `logs.json` file.
-func (c *config) initConfig() {
+// initConfig Initializes log configurations that can be gotten from the `logger.json` file.
+func (c *config) initConfig(conf *Configuration) {
 	_, b, _, _ := runtime.Caller(2)
 	c.BaseDir = filepath.Dir(b)
 
-	inputFile, inputError := os.Open(fmt.Sprintf("%s/%s", c.BaseDir, configFileName))
-	if inputError != nil {
-		panic("Log configuration file not found")
-	}
-	defer inputFile.Close()
-
-	file, err := ioutil.ReadFile(configFileName)
-	if err != nil {
-		panic(err)
-	}
-
-	// Get configurations file contents
-	json.Unmarshal(file, c)
+	c.Name = conf.Name
+	c.Filename = conf.Filename
+	c.MaxFileSize = conf.MaxFileSize
+	c.Folder = conf.Folder
+	c.Output = conf.Output
+	c.Buf = conf.Buffer
+	c.DisableLogType = conf.DisableLogType
+	c.Collection = conf.ColName
 
 	if c.Filename == "" {
 		c.Filename = "log.json"
@@ -159,8 +162,8 @@ func (c *config) initConfig() {
 	if c.Output == "" {
 		c.Output = CONSOLE
 	}
-	if c.DBName == ""  {
-		c.DBName = DBNAME
+	if c.Collection == ""  {
+		c.Collection = DBNAME
 	}
 	if strings.TrimSpace(c.Folder) == "" {
 		c.Folder = "logs"
@@ -187,54 +190,30 @@ func (c *config) initConfig() {
 }
 
 // New create a logger instance
-func New(conn ...interface{}) Logger {
+func New(conf Configuration) Logger {
 	// Initialize configuration file
 	configs := &config{}
-	configs.initConfig()
+	configs.initConfig(&conf)
 
 	switch configs.Output {
 	case CONSOLE:
 		return &ConsoleWriter{config: configs, ID: uuid.New().String()}
 	case FILE:
 		{
+			//panic("File writer not implemented")
 			file := &FileWriter{config: configs, ch: make(chan logFormat, configs.Buf), ID: uuid.New().String()}
 			go processor(file.ch, file)
 			return file
 		}
 	case SQL:
 		{
-			//if len(conn) == 0 {
-			//	panic("Failed to connect to SQL DB")
-			//}
-			//if reflect.TypeOf(conn).String() != "*sql.DB" {
-			//	panic("SQL requires *sql.DB connection type")
-			//}
-			//db:=conn[0].(*sql.DB)
-			//if db == nil{
-			//	log.Fatal("Sql DB connection is nil")
-			//}
-			//return &SqlWriter{
-			//	config: configs,
-			//	db: db,
-			//}
-			panic("SQL writer no implemented")
+			panic("SQL writer not implemented")
 		}
 	case MONGODB:
 		{
-			if len(conn) == 0 {
-				panic("Failed to connect to Mongo DB")
-			}
-			if reflect.TypeOf(conn).String() != "*mongo.Database" {
-				panic("MongoDb requires *mongo.Collection connection type")
-			}
-			db:= conn[0].(*mongo.Database)
-			if db == nil{
-				log.Fatal("MongoDB connection is nil")
-			}
-
+			panic("Mongo writer not implemented")
 			// Instance of mongo DB Collection
-			col := db.Collection(configs.DBName)
-
+			col := conf.MongoDB.Collection(configs.Collection)
 			return &MongoWriter{
 				config: configs,
 				db: col,

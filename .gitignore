@@ -1,4 +1,4 @@
 logs/
-logs.json
+logger.json
 .DS_Store
 .idea/

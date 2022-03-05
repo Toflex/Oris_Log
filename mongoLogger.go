@@ -3,7 +3,6 @@ package Oris_Log
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"os"
@@ -23,8 +22,9 @@ func (m *MongoWriter) SetLogID(id string) {
 }
 
 // NewContext This function is used to add context to a log record.
-func (m *MongoWriter) NewContext(ctx map[string]interface{}) Logger {
-	return &MongoWriter{config: m.config, context: ctx, ID: uuid.New().String()}
+func (m *MongoWriter) NewContext() Logger {
+	ctx:=make(map[string]interface{})
+	return &MongoWriter{config: m.config, context: ctx, ID: m.ID}
 }
 
 // AddContext Add a new context value to log writer

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"log"
 	"math"
@@ -31,14 +30,15 @@ func (f *FileWriter) SetLogID(id string) {
 }
 
 // NewContext This function is used to add context to a log record.
-func (f *FileWriter) NewContext(ctx map[string]interface{}) Logger {
+func (f *FileWriter) NewContext() Logger {
+	ctx:=make(map[string]interface{})
 	return &FileWriter{
 		config: f.config,
 		fp: f.fp,
 		ch: f.ch,
 		context: ctx,
 		acc: f.acc,
-		ID: uuid.New().String(),
+		ID: f.ID,
 	}
 }
 
